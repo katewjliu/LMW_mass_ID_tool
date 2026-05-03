@@ -1,6 +1,6 @@
 # LMW Fragment Mass Matcher (mAb / IgG)
 
-A browser-based tool for proposing candidate identities of low-molecular-weight (LMW) fragment masses observed in intact-mass deconvolution of monoclonal antibodies (mAbs). Given the heavy-chain (HC) and light-chain (LC) sequences plus one or more deconvoluted masses, the tool enumerates plausible clip and chain-assembly candidates within a user-defined mass tolerance, ranks them by a confidence score, and reports the most likely interpretations.
+A browser-based tool for proposing candidate identities of low-molecular-weight (LMW) fragment masses observed in intact-mass deconvolution of monoclonal antibodies (mAbs). Given the heavy-chain (HC) and light-chain (LC) sequences plus one or more deconvoluted masses, the tool enumerates plausible clip and chain-assembly candidates within a user-defined mass tolerance, ranks them by a confidence score, and reports the most likely interpretations. 
 
 **Live demo:** https://katewjliu.github.io/LMW_mass_ID_tool/
 
