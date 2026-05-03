@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>LMW Fragment Mass Matcher (mAb / IgG)</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel2: #1c212c;
+    --line: #2a3140;
+    --text: #e6e9ef;
+    --muted: #9aa3b2;
+    --accent: #6aa9ff;
+    --accent2: #3ddc97;
+    --warn: #f5a524;
+    --bad: #f06b6b;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0 0 10px; color: var(--accent); letter-spacing: 0.02em; text-transform: uppercase; }
+  .sub { color: var(--muted); margin-bottom: 20px; font-size: 13px; }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
+  label { color: var(--muted); display: inline-block; }
+  textarea {
+    width: 100%;
+    background: var(--panel2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    min-height: 90px;
+    resize: vertical;
+  }
+  input[type="text"], input[type="number"], select {
+    background: var(--panel2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  input[type="number"] { width: 90px; }
+  button {
+    background: var(--accent);
+    color: #0c1320;
+    border: 0;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  button.secondary { background: var(--panel2); color: var(--text); border: 1px solid var(--line); font-weight: 500; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .checkbox-group label { color: var(--text); margin-right: 14px; cursor: pointer; }
+  fieldset {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 8px 0;
+  }
+  legend { color: var(--muted); font-size: 12px; padding: 0 6px; }
+  .stats { color: var(--muted); font-size: 12px; margin: 6px 0 10px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    font-family: var(--mono);
+  }
+  th, td {
+    text-align: left;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th { color: var(--muted); font-weight: 500; background: var(--panel2); position: sticky; top: 0; cursor: pointer; user-select: none; }
+  tr:hover td { background: rgba(106, 169, 255, 0.06); }
+  .delta-good { color: var(--accent2); }
+  .delta-mid  { color: var(--warn); }
+  .delta-bad  { color: var(--bad); }
+  .results-wrap { max-height: 600px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; }
+  .badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    margin-right: 4px;
+  }
+  .badge.hc { color: #6aa9ff; border-color: rgba(106,169,255,0.4); }
+  .badge.lc { color: #f5a524; border-color: rgba(245,165,36,0.4); }
+  .badge.mod { color: #3ddc97; border-color: rgba(61,220,151,0.4); }
+  .badge.ss { color: #d29bff; border-color: rgba(210,155,255,0.4); }
+  .seq-meta { color: var(--muted); font-size: 12px; margin-top: 6px; font-family: var(--mono); }
+  details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+  .empty { padding: 30px; text-align: center; color: var(--muted); }
+  tr.group-header td {
+    background: linear-gradient(90deg, rgba(106,169,255,0.15), rgba(106,169,255,0.02));
+    color: var(--accent);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    padding: 10px 12px;
+    border-top: 2px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    letter-spacing: 0.02em;
+  }
+  tr.group-header .group-meta { color: var(--muted); font-weight: 400; margin-left: 10px; }
+  tr.no-hits td { color: var(--muted); font-style: italic; padding: 10px 12px; background: rgba(245,165,36,0.04); }
+  .small-num { width: 70px; }
+  .footer {
+    color: var(--text);
+    font-size: 13px;
+    margin-top: 28px;
+    line-height: 1.6;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 22px;
+  }
+  .footer h3 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .footer ul {
+    margin: 0;
+    padding-left: 20px;
+  }
+  .footer li {
+    margin-bottom: 8px;
+  }
+  .footer code, .footer strong { color: var(--text); }
+  .pill-group { display: inline-flex; gap: 0; }
+  .pill-group label {
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    padding: 4px 10px;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .pill-group label:first-child { border-radius: 6px 0 0 6px; }
+  .pill-group label:last-child { border-radius: 0 6px 6px 0; border-left: 0; }
+  .pill-group input { display: none; }
+  .pill-group input:checked + span { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>Low MW Fragment Mass Matcher</h1>
+<p class="sub">For intact-mass deconvolution of mAb / IgG clips. Enumerates every contiguous HC/LC subsequence, applies Pyro-Glu, C-terminal Lys clipping, Fc glycoforms, and disulfide-linked multi-clip combinations, then proposes candidates within tolerance.</p>
+
+<div class="panel">
+  <h2>1. Sequences</h2>
+  <div class="grid">
+    <div>
+      <label>Heavy Chain (HC) — one-letter code</label>
+      <textarea id="hc" placeholder="EVQLVESGGGLVQPGGSL..."></textarea>
+      <div class="seq-meta" id="hcMeta"></div>
+    </div>
+    <div>
+      <label>Light Chain (LC) — one-letter code</label>
+      <textarea id="lc" placeholder="DIQMTQSPSSLSASVGDR..."></textarea>
+      <div class="seq-meta" id="lcMeta"></div>
+    </div>
+  </div>
+  <div class="row">
+    <button class="secondary" id="loadExample">Load trastuzumab example</button>
+    <button class="secondary" id="clearSeqs">Clear</button>
+    <span class="stats" id="seqStats"></span>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>2. Modifications &amp; assembly</h2>
+  <div class="checkbox-group">
+    <label><input type="checkbox" id="modPyroGlu" checked> Pyro-Glu (N-term Q→−17.027, E→−18.011)</label>
+    <label><input type="checkbox" id="modKloss" checked> C-term Lys clipping (HC, 0/1 K loss)</label>
+    <label><input type="checkbox" id="modGlyc" checked> Fc glycoforms on N-X-S/T (X≠P)</label>
+    <label><input type="checkbox" id="modCys"> Cysteinylation (free Cys S–S adduct, +119.14 Da)</label>
+    <label><input type="checkbox" id="modGSH"> Glutathionylation (GSH S–S adduct, +305.31 Da)</label>
+  </div>
+  <fieldset>
+    <legend>Glycoforms to evaluate (per glycosylation site)</legend>
+    <div class="checkbox-group" id="glycChecks">
+      <label><input type="checkbox" value="none"> Aglycosyl</label>
+      <label><input type="checkbox" value="G0F" checked> G0F</label>
+      <label><input type="checkbox" value="G0"> G0</label>
+      <label><input type="checkbox" value="G1F" checked> G1F</label>
+      <label><input type="checkbox" value="G2F"> G2F</label>
+      <label><input type="checkbox" value="Man5"> Man5</label>
+    </div>
+  </fieldset>
+  <div class="row">
+    <label>Enzyme treatment:</label>
+    <select id="workflow">
+      <option value="untreated" selected>Untreated</option>
+      <option value="IdeS">IdeS / FabRICATOR</option>
+      <option value="papain">Papain</option>
+      <option value="pepsin">Pepsin</option>
+      <option value="GingisKHAN">GingisKHAN</option>
+    </select>
+  </div>
+  <div class="row">
+    <label>Mass type:</label>
+    <span class="pill-group">
+      <label><input type="radio" name="massType" value="avg" checked><span>Average</span></label>
+      <label><input type="radio" name="massType" value="mono"><span>Monoisotopic</span></label>
+    </span>
+    <label style="margin-left:18px;">Sample state:</label>
+    <select id="sampleState">
+      <option value="nonreduced" selected>Non-reduced (disulfides intact)</option>
+      <option value="reduced">Reduced (no disulfides)</option>
+    </select>
+    <label style="margin-left:18px;">Max cuts per chain:</label>
+    <select id="maxCutsPerClip">
+      <option value="0">0 (full chain only)</option>
+      <option value="1" selected>1 (terminal fragments)</option>
+      <option value="2">2 (include internal fragments)</option>
+    </select>
+    <label style="margin-left:18px;">Min clip length (aa):</label>
+    <input type="number" id="minLen" value="50" min="1" class="small-num" title="Minimum clip length in residues. Default 50 ≈ 5.5 kDa, near the lower limit of intact-mass deconvolution. Lower it if you're chasing micro-fragments; raise it (e.g. 100 ≈ 11 kDa) for stricter intact-mass interpretation.">
+  </div>
+</div>
+
+<div class="panel">
+  <h2>3. Query masses</h2>
+  <label>Deconvoluted mass(es) — one per line (Da)</label>
+  <textarea id="masses" placeholder="47621.5&#10;23410.2&#10;25234.0"></textarea>
+  <div class="row">
+    <label>Tolerance:</label>
+    <input type="number" id="tol" value="5" step="0.1" min="0.01">
+    <select id="tolUnit"><option value="Da" selected>Da</option><option value="ppm">ppm</option></select>
+    <label style="margin-left:18px;">Min score:</label>
+    <input type="number" id="minScore" value="70" min="0" max="100" step="5" class="small-num">
+    <label>Max per query:</label>
+    <input type="number" id="maxResults" value="200" min="1" step="50" class="small-num">
+    <button id="searchBtn">Search</button>
+    <button class="secondary" id="exportBtn">Export CSV</button>
+    <span class="stats" id="searchStatus"></span>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>4. Results</h2>
+  <div class="results-wrap">
+    <div class="empty" id="emptyMsg">Enter sequences and a query mass, then click Search.</div>
+    <table id="resultsTable" style="display:none;">
+      <thead>
+        <tr>
+          <th data-sort="score">Score</th>
+          <th data-sort="klass">Class</th>
+          <th data-sort="query">Query (Da)</th>
+          <th data-sort="calc">Calc (Da)</th>
+          <th data-sort="dDa">Δ (Da)</th>
+          <th data-sort="dPpm">Δ (ppm)</th>
+          <th data-sort="composition">Composition</th>
+          <th data-sort="cuts">Cleavage</th>
+          <th data-sort="mods">Modifications</th>
+          <th data-sort="ss">S–S</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="footer">
+  <h3>Notes</h3>
+  <ul>
+    <li><strong>Clip enumeration.</strong> HC and LC contiguous subsequences are generated as candidate clips, controlled by <strong>Max cuts per chain</strong>: 0 = full chain only · 1 = terminal fragments (Fab, Fc/2, etc.) · 2 = include internal fragments. <strong>Min clip length</strong> defaults to 50 aa (≈ 5.5 kDa) since intact mass deconvolution typically resolves ≥ 10 kDa species; lower it for smaller fragments or raise it (e.g. 100 aa ≈ 11 kDa) to be stricter.</li>
+    <li><strong>Non-reduced mode.</strong> IgG is held together by inter-chain S–S, so the tool searches assemblies of 1–4 chains (≤ 2 HC + 2 LC) using the auto-detected disulfide topology: CPPC motif defines hinge HH bonds; last Cys before the hinge in HC and last Cys in LC define the HL bond; remaining Cys are paired sequentially as intra-chain bonds. Each assembly's S–S count is computed exactly from the Cys positions actually present, and assemblies not physically connected by inter-chain S–S (e.g., 1 HC + 2 LC, or 2 LC alone) are rejected.</li>
+    <li><strong>Reduced mode.</strong> No S–S adjustment; only single-clip search runs since each chain floats free.</li>
+    <li><strong>Modifications.</strong> Glycoforms apply at any N-X-S/T (X≠P) sequon inside a clip. Pyro-Glu requires the clip to start at HC/LC position 1 with Q or E. C-terminal Lys clipping applies only when an HC clip ends at the chain's C-terminus on K. Cysteinylation (+119.14 Da) and Glutathionylation (+305.31 Da) are S–S adducts that require the clip to contain at least one Cys; they're optional (off by default) since most CHO-produced IgGs are fully oxidized.</li>
+    <li><strong>Scoring.</strong> Canonical species (Full mAb, Half-mAb, Fab, F(ab')₂, Fc, Fc/2, HC, LC) get a class bonus. Cleavages at chemical-lability hotspots earn additional bonuses by category — Asp-mediated (D–P most labile, then D–G, D–S/T, generic D–X, X–D); Asn-mediated (N–G, N–S); hinge/flexible-region motifs (G–G, G–L, L–G, S–G, A–S, L–S); Cys-adjacent (X–C from radical-mediated chemistry). Cuts at none of these hotspots get a parsimony penalty.</li>
+    <li><strong>Enzyme-specific bonuses.</strong> Papain (~HC:224), IdeS (~HC:236), pepsin (~HC:234), and GingisKHAN (~HC:238) only contribute to the score when the corresponding <strong>Enzyme treatment</strong> is selected. For untreated CHO drug substance, none of these apply.</li>
+    <li><strong>Use the matcher for orientation, not validation.</strong> Confirm proposed clips by peptide mapping or middle-down sequencing before publishing.</li>
+  </ul>
+</div>
+
+<script>
+"use strict";
+
+/* ---------- Constants ---------- */
+
+const AA_AVG = {
+  A: 71.0788, R: 156.1875, N: 114.1038, D: 115.0886, C: 103.1388,
+  E: 129.1155, Q: 128.1307, G: 57.0519, H: 137.1411, I: 113.1594,
+  L: 113.1594, K: 128.1741, M: 131.1926, F: 147.1766, P: 97.1167,
+  S: 87.0782, T: 101.1051, W: 186.2132, Y: 163.1760, V: 99.1326
+};
+const AA_MONO = {
+  A: 71.03711, R: 156.10111, N: 114.04293, D: 115.02694, C: 103.00919,
+  E: 129.04259, Q: 128.05858, G: 57.02146, H: 137.05891, I: 113.08406,
+  L: 113.08406, K: 128.09496, M: 131.04049, F: 147.06841, P: 97.05276,
+  S: 87.03203, T: 101.04768, W: 186.07931, Y: 163.06333, V: 99.06841
+};
+const WATER = { avg: 18.01528, mono: 18.01056 };
+const HYDROGEN = { avg: 1.00794, mono: 1.00783 };
+
+// Monosaccharide residue (anhydro) masses
+const SUGAR = {
+  HexNAc: { avg: 203.1925, mono: 203.07937 },
+  Hex:    { avg: 162.1424, mono: 162.05282 },
+  Fuc:    { avg: 146.1430, mono: 146.05791 }
+};
+function glycMass(comp, type) {
+  return (comp.HexNAc || 0) * SUGAR.HexNAc[type]
+       + (comp.Hex    || 0) * SUGAR.Hex[type]
+       + (comp.Fuc    || 0) * SUGAR.Fuc[type];
+}
+const GLYCAN_DEFS = {
+  none: { HexNAc: 0, Hex: 0, Fuc: 0 },
+  G0:   { HexNAc: 4, Hex: 3, Fuc: 0 },
+  G0F:  { HexNAc: 4, Hex: 3, Fuc: 1 },
+  G1F:  { HexNAc: 4, Hex: 4, Fuc: 1 },
+  G2F:  { HexNAc: 4, Hex: 5, Fuc: 1 },
+  Man5: { HexNAc: 2, Hex: 5, Fuc: 0 }
+};
+
+const PYROGLU_Q = { avg: -17.02655, mono: -17.02655 }; // -NH3
+const PYROGLU_E = { avg: -18.01528, mono: -18.01056 }; // -H2O
+const SS_DELTA = { avg: -2.01565,  mono: -2.01565  }; // -2H
+// Free-thiol S–S adducts on unpaired Cys: protein-S-S-X
+//   Cys (C3H7NO2S, 121.158 avg / 121.01975 mono)        → +119.14 / +119.0041 (−2H)
+//   GSH (C10H17N3O6S, 307.323 avg / 307.08381 mono)     → +305.31 / +305.0682 (−2H)
+const CYS_ADDUCT = { avg: 119.142, mono: 119.00409 };
+const GSH_ADDUCT = { avg: 305.307, mono: 305.06816 };
+
+/* ---------- Trastuzumab example ---------- */
+
+const TRASTUZUMAB_HC =
+  "EVQLVESGGGLVQPGGSLRLSCAASGFNIKDTYIHWVRQAPGKGLEWVARIYPTNGYTRYADSVKGRFTISADTSKNTAYLQMNSLRAEDTAVYYCSRWGGDGFYAMDYWGQGTLVTVSSASTKGPSVFPLAPSSKSTSGGTAALGCLVKDYFPEPVTVSWNSGALTSGVHTFPAVLQSSGLYSLSSVVTVPSSSLGTQTYICNVNHKPSNTKVDKKVEPKSCDKTHTCPPCPAPELLGGPSVFLFPPKPKDTLMISRTPEVTCVVVDVSHEDPEVKFNWYVDGVEVHNAKTKPREEQYNSTYRVVSVLTVLHQDWLNGKEYKCKVSNKALPAPIEKTISKAKGQPREPQVYTLPPSREEMTKNQVSLTCLVKGFYPSDIAVEWESNGQPENNYKTTPPVLDSDGSFFLYSKLTVDKSRWQQGNVFSCSVMHEALHNHYTQKSLSLSPGK";
+const TRASTUZUMAB_LC =
+  "DIQMTQSPSSLSASVGDRVTITCRASQDVNTAVAWYQQKPGKAPKLLIYSASFLYSGVPSRFSGSRSGTDFTLTISSLQPEDFATYYCQQHYTTPPTFGQGTKVEIKRTVAAPSVFIFPPSDEQLKSGTASVVCLLNNFYPREAKVQWKVDNALQSGNSQESVTEQDSKDSTYSLSSTLTLSKADYEKHKVYACEVTHQGLSSPVTKSFNRGEC";
+
+/* ---------- DOM helpers ---------- */
+const $ = sel => document.querySelector(sel);
+
+/* ---------- Sequence handling ---------- */
+
+function cleanSeq(raw) {
+  return (raw || "").toUpperCase().replace(/[^ACDEFGHIKLMNPQRSTVWY]/g, "");
+}
+
+function buildCumMass(seq, type) {
+  // cum[i] = sum of residue masses for seq[0..i-1]; cum[0] = 0
+  const aa = type === "avg" ? AA_AVG : AA_MONO;
+  const cum = new Float64Array(seq.length + 1);
+  for (let i = 0; i < seq.length; i++) {
+    cum[i + 1] = cum[i] + (aa[seq[i]] || 0);
+  }
+  return cum;
+}
+
+/* ---------- Disulfide topology ---------- */
+// Auto-detect IgG-like topology from HC/LC sequences:
+//   - Find CPPC (or CXXC) hinge motif → 2 HH inter-chain Cys
+//   - Cys immediately N-term of hinge → HC HL-inter Cys
+//   - Last Cys in LC → LC HL-inter Cys
+//   - All remaining Cys in each chain are paired sequentially as intra-chain SS
+// Falls back gracefully when motifs aren't found (sets are empty).
+
+function buildSSTopology(hc, lc) {
+  const topo = { intra: [], inter_HL: [], inter_HH: [], hcHL: null, lcHL: null, hingeCys: [] };
+  if (hc) {
+    const hcCys = [];
+    for (let i = 0; i < hc.length; i++) if (hc[i] === "C") hcCys.push(i + 1);
+    let hingeStart = -1;
+    for (let i = 0; i + 3 < hc.length; i++) {
+      if (hc[i] === "C" && hc[i+3] === "C" && hc[i+1] === "P" && hc[i+2] === "P") {
+        hingeStart = i + 1; break;
+      }
+    }
+    let hcHL = null;
+    if (hingeStart > 0) {
+      topo.hingeCys = [hingeStart, hingeStart + 3];
+      topo.inter_HH.push({ posA: hingeStart, posB: hingeStart });
+      topo.inter_HH.push({ posA: hingeStart + 3, posB: hingeStart + 3 });
+      const before = hcCys.filter(p => p < hingeStart);
+      if (before.length) hcHL = before[before.length - 1];
+    }
+    const exclude = new Set([...topo.hingeCys, ...(hcHL ? [hcHL] : [])]);
+    const intras = hcCys.filter(p => !exclude.has(p));
+    for (let i = 0; i + 1 < intras.length; i += 2) {
+      topo.intra.push({ chain: "HC", a: intras[i], b: intras[i+1] });
+    }
+    topo.hcHL = hcHL;
+  }
+  if (lc) {
+    const lcCys = [];
+    for (let i = 0; i < lc.length; i++) if (lc[i] === "C") lcCys.push(i + 1);
+    if (lcCys.length) {
+      topo.lcHL = lcCys[lcCys.length - 1];
+      const intras = lcCys.slice(0, -1);
+      for (let i = 0; i + 1 < intras.length; i += 2) {
+        topo.intra.push({ chain: "LC", a: intras[i], b: intras[i+1] });
+      }
+    }
+  }
+  if (topo.hcHL && topo.lcHL) {
+    topo.inter_HL.push({ hcPos: topo.hcHL, lcPos: topo.lcHL });
+  }
+  return topo;
+}
+
+// Count SS bonds and inter-chain edges for a list of clip "instances".
+// Each clip instance is treated independently (so 2 HC clips = 2 HC instances).
+function countSSExact(parts, topology) {
+  let intra = 0, interHL = 0, interHH = 0;
+  for (const p of parts) {
+    for (const pair of topology.intra) {
+      if (pair.chain === p.chain && pair.a >= p.start && pair.a <= p.end &&
+                                    pair.b >= p.start && pair.b <= p.end) intra++;
+    }
+  }
+  const HCidx = [], LCidx = [];
+  parts.forEach((p, i) => { if (p.chain === "HC") HCidx.push(i); else LCidx.push(i); });
+  const edges = [];
+  // Inter-HL: greedy match HC-instance with LC-instance per bond
+  for (const hl of topology.inter_HL) {
+    const eligibleHC = HCidx.filter(i => hl.hcPos >= parts[i].start && hl.hcPos <= parts[i].end);
+    const eligibleLC = LCidx.filter(i => hl.lcPos >= parts[i].start && hl.lcPos <= parts[i].end);
+    const matched = Math.min(eligibleHC.length, eligibleLC.length);
+    interHL += matched;
+    for (let k = 0; k < matched; k++) edges.push([eligibleHC[k], eligibleLC[k]]);
+  }
+  // Inter-HH: requires 2 distinct HC instances both spanning the hinge Cys
+  for (const hh of topology.inter_HH) {
+    const both = HCidx.filter(i => hh.posA >= parts[i].start && hh.posA <= parts[i].end &&
+                                   hh.posB >= parts[i].start && hh.posB <= parts[i].end);
+    if (both.length >= 2) {
+      interHH++;
+      edges.push([both[0], both[1]]);
+    }
+  }
+  return { intra, interHL, interHH, total: intra + interHL + interHH, edges };
+}
+
+function isConnected(n, edges) {
+  if (n <= 1) return true;
+  const adj = Array.from({length: n}, () => []);
+  for (const [a, b] of edges) { if (a !== b) { adj[a].push(b); adj[b].push(a); } }
+  const seen = new Array(n).fill(false);
+  const stack = [0]; seen[0] = true;
+  while (stack.length) {
+    const v = stack.pop();
+    for (const u of adj[v]) if (!seen[u]) { seen[u] = true; stack.push(u); }
+  }
+  return seen.every(x => x);
+}
+
+function findGlycoSites(seq) {
+  // N-X-S/T where X != P. Returns 0-indexed positions of N.
+  const sites = [];
+  for (let i = 0; i + 2 < seq.length; i++) {
+    if (seq[i] === "N" && seq[i + 1] !== "P" && (seq[i + 2] === "S" || seq[i + 2] === "T")) {
+      sites.push(i);
+    }
+  }
+  return sites;
+}
+
+function cysCount(seq, start, end) {
+  // count C in seq[start-1 .. end-1]
+  let c = 0;
+  for (let i = start - 1; i < end; i++) if (seq[i] === "C") c++;
+  return c;
+}
+
+/* ---------- Glycan combinations ---------- */
+
+function selectedGlycans() {
+  const out = [];
+  document.querySelectorAll('#glycChecks input[type="checkbox"]:checked').forEach(el => {
+    out.push(el.value);
+  });
+  return out.length ? out : ["none"];
+}
+
+function multisetCombos(items, k) {
+  // returns all multisets of length k drawn from items (unordered, with repetition)
+  if (k === 0) return [[]];
+  const out = [];
+  function rec(start, current) {
+    if (current.length === k) { out.push(current.slice()); return; }
+    for (let i = start; i < items.length; i++) {
+      current.push(items[i]);
+      rec(i, current);
+      current.pop();
+    }
+  }
+  rec(0, []);
+  return out;
+}
+
+/* ---------- Generate elementary clips ---------- */
+
+function generateClips(state) {
+  // For each chain, enumerate all (start, end) with end-start+1 >= minLen.
+  // For each clip, compute base mass, list of glyco sites covered, cys count,
+  // and produce all mod-combination variants (pyro-Glu × K-loss × glycan multiset).
+  const { hc, lc, type, minLen, modPyroGlu, modKloss, modGlyc, glycSet } = state;
+  const clips = [];
+  const water = WATER[type];
+
+  for (const ch of [
+    { id: "HC", seq: hc, cum: state.hcCum, sites: state.hcSites },
+    { id: "LC", seq: lc, cum: state.lcCum, sites: state.lcSites }
+  ]) {
+    if (!ch.seq) continue;
+    const n = ch.seq.length;
+    for (let s = 1; s <= n; s++) {
+      for (let e = s + minLen - 1; e <= n; e++) {
+        const baseMass = (ch.cum[e] - ch.cum[s - 1]) + water;
+        const cys = cysCountFromCum(ch.cysCum, s, e);
+        // glyco sites that fall fully inside [s..e] (need 3-residue motif)
+        const sitesInside = ch.sites.filter(p => (p + 1) >= s && (p + 3) <= e).length;
+        // Pyro-Glu: only if clip starts at chain N-term (s==1) and starts with Q or E
+        const pyroOpts = [{ name: null, delta: 0 }];
+        if (modPyroGlu && s === 1) {
+          if (ch.seq[0] === "Q") pyroOpts.push({ name: "PyroGlu(Q)", delta: PYROGLU_Q[type] });
+          if (ch.seq[0] === "E") pyroOpts.push({ name: "PyroGlu(E)", delta: PYROGLU_E[type] });
+        }
+        // C-term K loss: only HC, only if clip ends at HC C-term and last residue is K
+        const klossOpts = [{ name: null, delta: 0 }];
+        if (modKloss && ch.id === "HC" && e === n && ch.seq[n - 1] === "K") {
+          klossOpts.push({ name: "−K", delta: -(type === "avg" ? AA_AVG.K : AA_MONO.K) });
+        }
+        // Glycan multisets: choose with repetition for sitesInside slots
+        let glycCombos = [[]];
+        if (modGlyc && sitesInside > 0 && glycSet.length > 0) {
+          glycCombos = multisetCombos(glycSet, sitesInside);
+        }
+
+        for (const py of pyroOpts) {
+          for (const kl of klossOpts) {
+            for (const gset of glycCombos) {
+              let mass = baseMass + py.delta + kl.delta;
+              const glycLabels = [];
+              for (const g of gset) {
+                mass += glycMass(GLYCAN_DEFS[g], type);
+                glycLabels.push(g);
+              }
+              const modParts = [];
+              if (py.name) modParts.push(py.name);
+              if (kl.name) modParts.push(kl.name);
+              if (glycLabels.length) modParts.push("Glyc:" + glycLabels.join("+"));
+              clips.push({
+                chain: ch.id,
+                start: s,
+                end: e,
+                len: e - s + 1,
+                mass: mass,
+                cys: cys,
+                glycCount: sitesInside,
+                glycSet: glycLabels,
+                mods: modParts
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+  return clips;
+}
+
+function cysCountFromCum(cysCum, s, e) {
+  return cysCum[e] - cysCum[s - 1];
+}
+function buildCysCum(seq) {
+  const c = new Int32Array(seq.length + 1);
+  for (let i = 0; i < seq.length; i++) c[i + 1] = c[i] + (seq[i] === "C" ? 1 : 0);
+  return c;
+}
+
+/* ---------- Search ---------- */
+
+function ssAdjust(totalCys, ssMode, type) {
+  const dh2 = SS_DELTA[type];
+  if (ssMode === "none") return [{ n: 0, delta: 0 }];
+  const max = Math.floor(totalCys / 2);
+  if (ssMode === "all") return [{ n: max, delta: max * dh2 }];
+  // any
+  const list = [];
+  for (let n = 0; n <= max; n++) list.push({ n, delta: n * dh2 });
+  return list;
+}
+
+function withinTol(diff, query, tol, unit) {
+  const limit = unit === "ppm" ? (query * tol / 1e6) : tol;
+  return Math.abs(diff) <= limit;
+}
+
+function tolWindow(query, tol, unit) {
+  return unit === "ppm" ? (query * tol / 1e6) : tol;
+}
+
+function searchSingleClips(query, clips, state) {
+  const out = [];
+  const win = tolWindow(query, state.tol, state.tolUnit);
+  const dh2 = SS_DELTA[state.type];
+  const useTopo = state.ssMode !== "none";
+  for (const c of clips) {
+    const ss = useTopo ? countSSExact([c], state.topology) : { total: 0, intra: 0, interHL: 0, interHH: 0, edges: [] };
+    const calc = c.mass + ss.total * dh2;
+    const d = calc - query;
+    if (Math.abs(d) <= win) {
+      out.push({
+        query, calc, dDa: d, dPpm: 1e6 * d / query,
+        parts: [c],
+        totalCys: c.cys,
+        ssCount: ss.total,
+        ssDetail: ss,
+        modSummary: c.mods
+      });
+    }
+  }
+  return out;
+}
+
+function buildSortedIndex(clips) {
+  const idx = clips.map((c, i) => i).sort((a, b) => clips[a].mass - clips[b].mass);
+  const masses = new Float64Array(idx.length);
+  for (let i = 0; i < idx.length; i++) masses[i] = clips[idx[i]].mass;
+  return { idx, masses };
+}
+
+function lowerBound(arr, x) {
+  let lo = 0, hi = arr.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (arr[mid] < x) lo = mid + 1; else hi = mid;
+  }
+  return lo;
+}
+
+function searchPairs(query, clips, sorted, state) {
+  // Topology-based: compute exact SS for each (c1, c2) pair, require connectivity.
+  const out = [];
+  const win = tolWindow(query, state.tol, state.tolUnit);
+  const dh2 = SS_DELTA[state.type];
+  // No early-exit cap; topology + connectivity already prune the space.
+  const candidates = state.terminalOnly ? state.terminalClips : clips;
+  const subSorted = state.terminalOnly ? state.terminalSorted : sorted;
+  const N = candidates.length;
+  // Maximum SS adjustment magnitude for window expansion (16 SS in worst case)
+  const maxSSadjust = state.ssMode === "none" ? 0 : 16 * Math.abs(dh2);
+  for (let i = 0; i < N; i++) {
+    const c1 = candidates[i];
+    if (c1.mass > query + win) continue;
+    const lo = (query - c1.mass) - 0 - win;
+    const hi = (query - c1.mass) + maxSSadjust + win;
+    let pos = lowerBound(subSorted.masses, lo);
+    while (pos < subSorted.masses.length && subSorted.masses[pos] <= hi) {
+      const j = subSorted.idx[pos]; pos++;
+      if (j < i) continue; // de-dupe (i,j) ↔ (j,i)
+      const c2 = candidates[j];
+      const nHC = (c1.chain === "HC" ? 1 : 0) + (c2.chain === "HC" ? 1 : 0);
+      const nLC = (c1.chain === "LC" ? 1 : 0) + (c2.chain === "LC" ? 1 : 0);
+      if (nHC > 2 || nLC > 2) continue;
+      const parts = [c1, c2];
+      const ss = state.ssMode === "none"
+        ? { total: 0, intra: 0, interHL: 0, interHH: 0, edges: [] }
+        : countSSExact(parts, state.topology);
+      const calc = c1.mass + c2.mass + ss.total * dh2;
+      const d = calc - query;
+      if (Math.abs(d) > win) continue;
+      // Reject combos that cannot be physically held together by inter-chain S–S
+      if (state.requireConnect && state.ssMode !== "none" && !isConnected(2, ss.edges)) continue;
+      out.push({
+        query, calc, dDa: d, dPpm: 1e6 * d / query,
+        parts,
+        totalCys: c1.cys + c2.cys,
+        ssCount: ss.total,
+        ssDetail: ss,
+        modSummary: [...c1.mods, ...c2.mods]
+      });
+      // (no cap — topology + connectivity already prune the search space; rely on score+threshold filtering)
+    }
+  }
+  return out;
+}
+
+function searchTriples(query, clips, sorted, state) {
+  const out = [];
+  const win = tolWindow(query, state.tol, state.tolUnit);
+  const dh2 = SS_DELTA[state.type];
+  // No early-exit cap; topology + connectivity already prune the space.
+  const candidates = state.terminalOnly ? state.terminalClips : clips;
+  const subSorted = state.terminalOnly ? state.terminalSorted : sorted;
+  const N = candidates.length;
+  const maxSSadjust = state.ssMode === "none" ? 0 : 16 * Math.abs(dh2);
+  for (let i = 0; i < N; i++) {
+    const c1 = candidates[i];
+    if (c1.mass > query + win) continue;
+    for (let j = i; j < N; j++) {
+      const c2 = candidates[j];
+      if (c1.mass + c2.mass > query + win) break;
+      const target = query - c1.mass - c2.mass;
+      const lo = target - 0 - win;
+      const hi = target + maxSSadjust + win;
+      let pos = lowerBound(subSorted.masses, lo);
+      while (pos < subSorted.masses.length && subSorted.masses[pos] <= hi) {
+        const k = subSorted.idx[pos]; pos++;
+        if (k < j) continue;
+        const c3 = candidates[k];
+        const HCs = (c1.chain==="HC"?1:0)+(c2.chain==="HC"?1:0)+(c3.chain==="HC"?1:0);
+        const LCs = (c1.chain==="LC"?1:0)+(c2.chain==="LC"?1:0)+(c3.chain==="LC"?1:0);
+        if (HCs > 2 || LCs > 2) continue;
+        const parts = [c1, c2, c3];
+        const ss = state.ssMode === "none"
+          ? { total: 0, intra: 0, interHL: 0, interHH: 0, edges: [] }
+          : countSSExact(parts, state.topology);
+        const calc = c1.mass + c2.mass + c3.mass + ss.total * dh2;
+        const d = calc - query;
+        if (Math.abs(d) > win) continue;
+        if (state.requireConnect && state.ssMode !== "none" && !isConnected(3, ss.edges)) continue;
+        out.push({
+          query, calc, dDa: d, dPpm: 1e6 * d / query,
+          parts,
+          totalCys: c1.cys + c2.cys + c3.cys,
+          ssCount: ss.total,
+          ssDetail: ss,
+          modSummary: [...c1.mods, ...c2.mods, ...c3.mods]
+        });
+        // (no cap — topology + connectivity already prune the search space; rely on score+threshold filtering)
+      }
+    }
+  }
+  return out;
+}
+
+function searchQuadruples(query, clips, state) {
+  // Symmetric 2 HC + 2 LC assembly: covers Full mAb (full HC + full LC) and
+  // F(ab')₂-like species (HC[1-N] + LC[1-end]). The two HC instances are taken
+  // identical, and the two LC instances identical — biologically reasonable for
+  // intact mass interpretation (asymmetric assemblies are rare and degenerate).
+  const out = [];
+  const win = tolWindow(query, state.tol, state.tolUnit);
+  const dh2 = SS_DELTA[state.type];
+  // No early-exit cap; topology + connectivity already prune the space.
+  // Use terminal subset (or a permissive subset including N-term clips with HL Cys)
+  const HC_clips = (state.terminalClips).filter(c => c.chain === "HC");
+  const LC_clips = (state.terminalClips).filter(c => c.chain === "LC");
+  // For each (HC, LC) shape pair, build the symmetric combo
+  for (const hc of HC_clips) {
+    if (2 * hc.mass > query + win) continue;
+    for (const lc of LC_clips) {
+      const baseSum = 2 * hc.mass + 2 * lc.mass;
+      if (baseSum > query + win + 16 * Math.abs(dh2)) continue;
+      const parts = [hc, hc, lc, lc];
+      const ss = state.ssMode === "none"
+        ? { total: 0, intra: 0, interHL: 0, interHH: 0, edges: [] }
+        : countSSExact(parts, state.topology);
+      const calc = baseSum + ss.total * dh2;
+      const d = calc - query;
+      if (Math.abs(d) > win) continue;
+      if (state.requireConnect && state.ssMode !== "none" && !isConnected(4, ss.edges)) continue;
+      out.push({
+        query, calc, dDa: d, dPpm: 1e6 * d / query,
+        parts,
+        totalCys: 2 * hc.cys + 2 * lc.cys,
+        ssCount: ss.total,
+        ssDetail: ss,
+        modSummary: [...hc.mods, ...hc.mods, ...lc.mods, ...lc.mods]
+      });
+      // (no cap — topology + connectivity already prune the search space; rely on score+threshold filtering)
+    }
+  }
+  return out;
+}
+
+/* ---------- Cleavage-site analysis & scoring ---------- */
+
+// Enzyme cleavage sites — only applied when the matching workflow is selected.
+// Positions are HC-residue-index of the LEFT side of the cut (1-based);
+// e.g., 224 means cut between residues 224 and 225 (...CDKTH|TCPPC for IgG1).
+// These are approximate and construct-dependent. Edit to match your construct.
+const ENZYME_SITES_BY_WORKFLOW = {
+  papain:      { HC: { 224: 16, 225: 14, 222: 12, 223: 12 } },
+  IdeS:        { HC: { 236: 16, 237: 16 } },
+  pepsin:      { HC: { 233: 12, 234: 12 } },
+  GingisKHAN:  { HC: { 238: 12 } },
+  untreated:   { HC: {} }
+};
+// Hinge zone — flexible region prone to spontaneous fragmentation regardless of workflow
+const HINGE_RANGE = { HC: [219, 245], LC: [-1, -1] };
+
+// Chemical-lability bonuses for non-enzymatic backbone cleavage. Always applied (these
+// reflect intrinsic peptide-bond chemistry, not enzymatic activity). Bonuses are loosely
+// scaled by published fragility ranking. References: Wang 2007 (J Pharm Sci), Vlasak &
+// Ionescu 2011 (mAbs), Cordoba 2005 (J Chromatogr B), Yan 2009 (J Pharm Sci) on
+// hinge/Asp/Asn fragmentation hotspots.
+//
+// Within each chemistry category the *most specific* match wins; categories stack
+// (e.g., a D-C cut earns from both Asp chemistry and X-C/Cys chemistry).
+function chemicalBonus(lAA, rAA, workflow) {
+  const tags = [];
+  let bonus = 0;
+  const wfBoost = workflow === "untreated";
+
+  // ── Asp-on-left (succinimide / acid-labile) ───────────────────────
+  if (lAA === "D") {
+    if (rAA === "P")                       { tags.push("D–P"); bonus += wfBoost ? 16 : 12; }
+    else if (rAA === "G")                  { tags.push("D–G"); bonus += 6; }
+    else if (rAA === "S" || rAA === "T")   { tags.push(`D–${rAA}`); bonus += 5; }
+    else                                    { tags.push(`D–${rAA}`); bonus += 4; }   // generic D–X
+  }
+  // ── Asp-on-right (X-D, weaker but documented) ─────────────────────
+  else if (rAA === "D")                     { tags.push(`${lAA}–D`); bonus += 4; }
+
+  // ── Asn-on-left (succinimide / deamidation) ───────────────────────
+  if (lAA === "N") {
+    if (rAA === "G")                       { tags.push("N–G"); bonus += wfBoost ? 8 : 6; }
+    else if (rAA === "S")                  { tags.push("N–S"); bonus += 4; }
+  }
+
+  // ── Hinge / flexible-region motifs (G/L/S contacts in Pro-rich regions) ──
+  if (lAA === "G" && rAA === "G")          { tags.push("G–G"); bonus += 8; }
+  else if (lAA === "G" && rAA === "L")     { tags.push("G–L"); bonus += 5; }
+  else if (lAA === "L" && rAA === "G")     { tags.push("L–G"); bonus += 5; }
+  else if (lAA === "S" && rAA === "G")     { tags.push("S–G"); bonus += 4; }
+  else if (lAA === "A" && rAA === "S")     { tags.push("A–S"); bonus += 3; }
+  else if (lAA === "L" && rAA === "S")     { tags.push("L–S"); bonus += 3; }
+
+  // ── Cys-related (radical-mediated / oxidative cleavage) ───────────
+  if (rAA === "C" && lAA !== "C")          { tags.push(`${lAA}–C`); bonus += 4; }
+
+  return { tags, bonus };
+}
+
+function analyzeCut(pos, chain, seq, workflow) {
+  // pos = 1-based residue index of LEFT side of cleavage (cut between residue pos and pos+1)
+  if (pos < 1 || pos >= seq.length) return null;
+  const lAA = seq[pos - 1];
+  const rAA = seq[pos];
+  const chem = chemicalBonus(lAA, rAA, workflow);
+  const tags = chem.tags.slice();
+  let bonus = chem.bonus;
+  // Enzyme-specific bonus only when the corresponding digest workflow is selected
+  const enzMap = ENZYME_SITES_BY_WORKFLOW[workflow] && ENZYME_SITES_BY_WORKFLOW[workflow][chain];
+  if (enzMap && enzMap[pos] != null) {
+    tags.push(workflow);
+    bonus += enzMap[pos];
+  }
+  // Generic hinge bonus only for untreated samples (the hinge fragments spontaneously);
+  // enzyme workflows already get a targeted bonus, no need to double-count.
+  const hinge = HINGE_RANGE[chain];
+  if (workflow === "untreated" && hinge && pos >= hinge[0] && pos <= hinge[1]) {
+    tags.push("hinge"); bonus += 5;
+  }
+  return { pos, lAA, rAA, tags, bonus };
+}
+
+function clipCuts(clip, chainLen, seq, workflow) {
+  // Returns the two boundary cuts (or fewer for terminal-bounded sides)
+  const cuts = [];
+  if (clip.start > 1) {
+    const c = analyzeCut(clip.start - 1, clip.chain, seq, workflow);
+    if (c) cuts.push(c);
+  }
+  if (clip.end < chainLen) {
+    const c = analyzeCut(clip.end, clip.chain, seq, workflow);
+    if (c) cuts.push(c);
+  }
+  return cuts;
+}
+
+function classifyMatch(parts, ssCount, hcLen, lcLen) {
+  const chainLens = { HC: hcLen, LC: lcLen };
+  const isFull  = p => p.start === 1 && p.end === chainLens[p.chain];
+  const isFullHC = p => p.chain === "HC" && isFull(p);
+  const isFullLC = p => p.chain === "LC" && isFull(p);
+  // Fd-like: HC[1..X] where X falls in upper-hinge zone (tolerate broad range 200-260)
+  const isFd = p => p.chain === "HC" && p.start === 1 && p.end >= 200 && p.end <= 260 && p.end !== chainLens.HC;
+  // Fc-half: HC[X..end] where X in upper-hinge zone
+  const isFcHalf = p => p.chain === "HC" && p.end === chainLens.HC && p.start >= 200 && p.start <= 260 && p.start !== 1;
+  const HCs = parts.filter(p => p.chain === "HC");
+  const LCs = parts.filter(p => p.chain === "LC");
+
+  if (HCs.length === 2 && LCs.length === 2 && HCs.every(isFullHC) && LCs.every(isFullLC)) return "Full mAb";
+  if (HCs.length === 1 && LCs.length === 1 && isFullHC(HCs[0]) && isFullLC(LCs[0])) return "Half-mAb (HL)";
+  if (HCs.length === 2 && LCs.length === 1 && HCs.every(isFullHC) && isFullLC(LCs[0])) return "HHL (Δ-Fab)";
+  if (HCs.length === 2 && LCs.length === 0 && HCs.every(isFullHC)) return "HH";
+  if (HCs.length === 1 && LCs.length === 0 && isFullHC(HCs[0])) return "HC";
+  if (HCs.length === 0 && LCs.length === 1 && isFullLC(LCs[0])) return "LC";
+  if (HCs.length === 0 && LCs.length === 2 && LCs.every(isFullLC)) return "LL";
+  if (HCs.length === 1 && LCs.length === 1 && isFd(HCs[0]) && isFullLC(LCs[0])) return "Fab";
+  if (HCs.length === 2 && LCs.length === 2 && HCs.every(isFd) && LCs.every(isFullLC)) return "F(ab′)₂";
+  if (HCs.length === 1 && LCs.length === 0 && isFcHalf(HCs[0])) return "Fc/2";
+  if (HCs.length === 2 && LCs.length === 0 && HCs.every(isFcHalf)) return "Fc";
+  // Single internal/terminal clip (not full chain)
+  if (parts.length === 1) {
+    const p = parts[0];
+    if (p.start === 1) return p.chain + "-Nterm clip";
+    if (p.end === chainLens[p.chain]) return p.chain + "-Cterm clip";
+    return p.chain + " internal clip";
+  }
+  return "other combo";
+}
+
+const CLASS_BONUS = {
+  "Full mAb": 35, "Half-mAb (HL)": 30, "Fab": 28, "F(ab′)₂": 28,
+  "Fc": 26, "Fc/2": 22, "HC": 28, "LC": 28, "HH": 18, "LL": 18,
+  "HHL (Δ-Fab)": 18,
+  "HC-Nterm clip": 6, "HC-Cterm clip": 6, "LC-Nterm clip": 6, "LC-Cterm clip": 6,
+  "HC internal clip": -8, "LC internal clip": -8,
+  "other combo": 0
+};
+// Penalty for cleavages that don't match any chemical/enzyme/hinge hotspot —
+// arbitrary peptide-bond cuts (e.g., S-R, D-T) are biologically implausible
+// in an untreated CHO drug substance, so candidates that require them score lower.
+const NON_HOTSPOT_CUT_PENALTY = 12;
+const NO_CUTS_BONUS = 10; // reward for fully intact-chain interpretations
+
+function scoreMatch(m, state) {
+  let score = 50;
+  score += (CLASS_BONUS[m.klass] || 0);
+
+  // Cut-site bonuses (workflow-aware) and penalties for arbitrary cleavages
+  let cutBonus = 0;
+  let unmarkedCuts = 0;
+  let totalCuts = 0;
+  const cutLabels = [];
+  for (const p of m.parts) {
+    const seq = p.chain === "HC" ? state.hc : state.lc;
+    const len = p.chain === "HC" ? state.hcLen : state.lcLen;
+    const cuts = clipCuts(p, len, seq, state.workflow);
+    for (const c of cuts) {
+      totalCuts++;
+      cutBonus += c.bonus;
+      if (c.tags.length === 0) unmarkedCuts++; // arbitrary cleavage (e.g., S-R, D-T)
+      const tagStr = c.tags.length ? ` (${c.tags.join(",")})` : " (arbitrary)";
+      cutLabels.push(`${p.chain}:${c.pos}|${c.pos+1} ${c.lAA}-${c.rAA}${tagStr}`);
+    }
+  }
+  m.cutLabels = cutLabels;
+  score += Math.min(40, cutBonus);            // hotspot reward, capped
+  score -= NON_HOTSPOT_CUT_PENALTY * unmarkedCuts;
+  if (totalCuts === 0) score += NO_CUTS_BONUS; // fully intact-chain interpretation
+
+  // Modification plausibility
+  let modBonus = 0;
+  for (const p of m.parts) {
+    for (const mod of p.mods) {
+      if (/^PyroGlu/.test(mod)) modBonus += 3;
+      else if (mod === "−K") modBonus += 3;
+      else if (mod.startsWith("Glyc:")) {
+        const g = mod.split(":")[1];
+        if (g === "G0F") modBonus += 5;
+        else if (g === "G1F") modBonus += 3;
+        else if (g === "G0") modBonus += 2;
+        else if (g === "G2F") modBonus += 2;
+        else if (g === "Man5") modBonus += 1;
+      } else if (mod === "Aglycosyl") modBonus -= 3;
+      else if (mod === "+Cys") modBonus += 2;
+      else if (mod === "+GSH") modBonus += 2;
+    }
+  }
+  score += modBonus;
+
+  // Mass error penalty (in Da, scaled). Tighter = better.
+  score -= Math.min(30, Math.abs(m.dDa) * 1.5);
+
+  // Parsimony — fewer clips preferred when tied
+  if (m.parts.length === 1) score += 10;
+  else if (m.parts.length === 2) score += 0;
+  else if (m.parts.length === 3) score -= 4;
+  else if (m.parts.length === 4) score += 0; // full mAb is ok
+
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+/* ---------- Rendering ---------- */
+
+function partLabel(p) {
+  const cls = p.chain === "HC" ? "hc" : "lc";
+  return `<span class="badge ${cls}">${p.chain}[${p.start}-${p.end}]</span>`;
+}
+
+function compositionString(parts) {
+  // group identical parts (same chain/start/end/mods)
+  const map = new Map();
+  for (const p of parts) {
+    const key = `${p.chain}:${p.start}-${p.end}:${p.mods.join("|")}`;
+    if (!map.has(key)) map.set(key, { p, count: 0 });
+    map.get(key).count++;
+  }
+  return [...map.values()].map(({ p, count }) =>
+    (count > 1 ? `${count}× ` : "") + partLabel(p)
+  ).join(" + ");
+}
+
+function modBadges(parts) {
+  const all = [];
+  for (const p of parts) for (const m of p.mods) all.push(m);
+  if (!all.length) return '<span class="badge">none</span>';
+  return all.map(m => `<span class="badge mod">${m}</span>`).join(" ");
+}
+
+function deltaClass(d) {
+  const a = Math.abs(d);
+  if (a < 1) return "delta-good";
+  if (a < 3) return "delta-mid";
+  return "delta-bad";
+}
+
+let LAST_RESULTS = [];
+let LAST_QUERIES = [];
+
+function scoreColor(s) {
+  if (s >= 80) return "delta-good";
+  if (s >= 60) return "delta-mid";
+  return "delta-bad";
+}
+
+function classBadge(k) {
+  const canonical = ["Full mAb","Half-mAb (HL)","Fab","F(ab′)₂","Fc","Fc/2","HC","LC","HH","LL","HHL (Δ-Fab)"];
+  const cls = canonical.includes(k) ? "ss" : "";
+  return `<span class="badge ${cls}">${k}</span>`;
+}
+
+function cutCellHTML(m) {
+  if (!m.cutLabels || !m.cutLabels.length) return '<span class="badge">none / full</span>';
+  // Any tag with an em-dash (–) is a recognized hotspot/motif/enzyme; "(arbitrary)" is not.
+  const hotspotRe = /papain|IdeS|pepsin|GingisKHAN|hinge|–/;
+  return m.cutLabels.map(c => {
+    const isHotspot = hotspotRe.test(c) && !/arbitrary/.test(c);
+    return `<span class="badge ${isHotspot ? 'mod' : ''}">${c}</span>`;
+  }).join(" ");
+}
+
+function renderResults() {
+  const tbody = $("#resultsBody");
+  const tableEl = $("#resultsTable");
+  const empty = $("#emptyMsg");
+  const minScoreRaw = parseInt($("#minScore").value, 10);
+  const minScore = isNaN(minScoreRaw) ? 0 : minScoreRaw;
+
+  if (!LAST_QUERIES.length) {
+    tableEl.style.display = "none";
+    empty.style.display = "block";
+    empty.textContent = "Enter sequences and a query mass, then click Search.";
+    return;
+  }
+
+  // Group results by query and apply score threshold
+  const groups = new Map();
+  for (const q of LAST_QUERIES) groups.set(q, { all: [], shown: [] });
+  for (const r of LAST_RESULTS) {
+    const g = groups.get(r.query);
+    if (!g) continue;
+    g.all.push(r);
+    if (r.score >= minScore) g.shown.push(r);
+  }
+
+  const colspan = 10;
+  let html = "";
+  let totalShown = 0;
+  for (const q of LAST_QUERIES) {
+    const g = groups.get(q);
+    g.shown.sort((a, b) => (b.score - a.score) || (Math.abs(a.dDa) - Math.abs(b.dDa)));
+    let header;
+    if (g.shown.length > 0) {
+      const best = g.shown[0];
+      header = `<strong>Query ${q.toFixed(3)} Da</strong>` +
+        `<span class="group-meta">${g.shown.length} candidate${g.shown.length===1?'':'s'} ≥ score ${minScore}` +
+        (g.all.length > g.shown.length ? ` (+${g.all.length - g.shown.length} below threshold)` : '') +
+        ` — top: ${best.klass} (score ${best.score}, Δ ${best.dDa>=0?'+':''}${best.dDa.toFixed(2)} Da)</span>`;
+    } else if (g.all.length > 0) {
+      header = `<strong>Query ${q.toFixed(3)} Da</strong>` +
+        `<span class="group-meta">no candidates at score ≥ ${minScore} (${g.all.length} below threshold — try lowering Min score)</span>`;
+    } else {
+      header = `<strong>Query ${q.toFixed(3)} Da</strong>` +
+        `<span class="group-meta">no matches within mass tolerance — widen tolerance, raise Max clips, or enable more glycoforms</span>`;
+    }
+    html += `<tr class="group-header"><td colspan="${colspan}">${header}</td></tr>`;
+    if (g.shown.length === 0 && g.all.length > 0) {
+      html += `<tr class="no-hits"><td colspan="${colspan}">No candidates above score threshold for this query.</td></tr>`;
+    } else {
+      for (const r of g.shown) {
+        html += `
+          <tr>
+            <td class="${scoreColor(r.score)}"><strong>${r.score}</strong></td>
+            <td>${classBadge(r.klass)}</td>
+            <td>${r.query.toFixed(3)}</td>
+            <td>${r.calc.toFixed(3)}</td>
+            <td class="${deltaClass(r.dDa)}">${r.dDa >= 0 ? "+" : ""}${r.dDa.toFixed(3)}</td>
+            <td class="${deltaClass(r.dDa)}">${r.dPpm >= 0 ? "+" : ""}${r.dPpm.toFixed(1)}</td>
+            <td>${compositionString(r.parts)}</td>
+            <td>${cutCellHTML(r)}</td>
+            <td>${modBadges(r.parts)}</td>
+            <td>${r.ssCount > 0 ? `<span class="badge ss" title="${r.ssDetail ? `${r.ssDetail.intra} intra + ${r.ssDetail.interHL} HL + ${r.ssDetail.interHH} HH` : ''}">${r.ssCount}${r.ssDetail ? ` (${r.ssDetail.intra}i+${r.ssDetail.interHL}HL+${r.ssDetail.interHH}HH)` : ''}</span>` : '<span class="badge">0</span>'} / ${r.totalCys}C</td>
+          </tr>`;
+      }
+      totalShown += g.shown.length;
+    }
+  }
+  tbody.innerHTML = html;
+  tableEl.style.display = "table";
+  empty.style.display = "none";
+
+  const statusEl = $("#searchStatus");
+  if (statusEl && /^Done|^Showing/.test(statusEl.textContent || "")) {
+    const hidden = LAST_RESULTS.length - totalShown;
+    statusEl.textContent =
+      `Showing ${totalShown} of ${LAST_RESULTS.length} match${LAST_RESULTS.length===1?'':'es'} across ${LAST_QUERIES.length} quer${LAST_QUERIES.length===1?'y':'ies'}` +
+      (hidden > 0 ? ` (${hidden} hidden by Min score ≥ ${minScore})` : '') + `.`;
+  }
+}
+
+/* ---------- Sequence metadata ---------- */
+
+function updateSeqMeta() {
+  const hc = cleanSeq($("#hc").value);
+  const lc = cleanSeq($("#lc").value);
+  const hcSites = findGlycoSites(hc);
+  const lcSites = findGlycoSites(lc);
+  const hcCys = (hc.match(/C/g) || []).length;
+  const lcCys = (lc.match(/C/g) || []).length;
+  $("#hcMeta").innerHTML = hc
+    ? `${hc.length} aa &nbsp;·&nbsp; ${hcCys} Cys &nbsp;·&nbsp; ${hcSites.length} N-glyco site${hcSites.length===1?"":"s"}${hcSites.length ? " at "+hcSites.map(p=>p+1).join(", ") : ""}`
+    : "";
+  $("#lcMeta").innerHTML = lc
+    ? `${lc.length} aa &nbsp;·&nbsp; ${lcCys} Cys &nbsp;·&nbsp; ${lcSites.length} N-glyco site${lcSites.length===1?"":"s"}${lcSites.length ? " at "+lcSites.map(p=>p+1).join(", ") : ""}`
+    : "";
+  const hcCount = hc ? hc.length * (hc.length + 1) / 2 : 0;
+  const lcCount = lc ? lc.length * (lc.length + 1) / 2 : 0;
+  // Disulfide-topology summary
+  let topoStr = "";
+  if (hc || lc) {
+    const t = buildSSTopology(hc, lc);
+    const intraHC = t.intra.filter(p => p.chain === "HC").map(p => `${p.a}-${p.b}`).join(", ");
+    const intraLC = t.intra.filter(p => p.chain === "LC").map(p => `${p.a}-${p.b}`).join(", ");
+    const hl = t.inter_HL.map(p => `HC:${p.hcPos}↔LC:${p.lcPos}`).join(", ");
+    const hh = t.hingeCys.length ? `HC:${t.hingeCys.join("/")} (CPPC)` : "none";
+    topoStr =
+      `<br>S–S topology: HC intra (${t.intra.filter(p=>p.chain==="HC").length}) ${intraHC || "—"} ` +
+      `· LC intra (${t.intra.filter(p=>p.chain==="LC").length}) ${intraLC || "—"} ` +
+      `· HL (${t.inter_HL.length}) ${hl || "—"} ` +
+      `· HH ${hh}`;
+  }
+  $("#seqStats").innerHTML = (hc || lc) ? topoStr.replace(/^<br>/, "") : "";
+}
+
+/* ---------- Search orchestration ---------- */
+
+function runSearch() {
+  const hc = cleanSeq($("#hc").value);
+  const lc = cleanSeq($("#lc").value);
+  if (!hc && !lc) { alert("Enter at least one sequence (HC or LC)."); return; }
+
+  const massInput = ($("#masses").value || "").split(/[\s,;]+/).map(s => parseFloat(s)).filter(x => !isNaN(x) && x > 0);
+  if (!massInput.length) { alert("Enter at least one query mass."); return; }
+
+  const type = document.querySelector('input[name="massType"]:checked').value;
+  const state = {
+    hc, lc,
+    hcLen: hc.length, lcLen: lc.length,
+    type,
+    minLen: Math.max(1, parseInt($("#minLen").value || "3", 10)),
+    modPyroGlu: $("#modPyroGlu").checked,
+    modKloss:   $("#modKloss").checked,
+    modGlyc:    $("#modGlyc").checked,
+    modCys:     $("#modCys").checked,
+    modGSH:     $("#modGSH").checked,
+    glycSet:    selectedGlycans(),
+    sampleState: $("#sampleState").value,
+    ssMode:     ($("#sampleState").value === "reduced") ? "none" : "all",
+    tol:        parseFloat($("#tol").value),
+    tolUnit:    $("#tolUnit").value,
+    maxCutsPerClip: parseInt($("#maxCutsPerClip").value, 10),
+    // Implied derived parameters: in non-reduced mode the IgG is held by inter-chain S–S,
+    // so connectivity is mandatory and assemblies of 1–4 chains (max 2 HC + 2 LC) are valid.
+    // In reduced mode, no S–S means each chain floats free, so only single-clip search runs.
+    maxClips:   ($("#sampleState").value === "reduced") ? 1 : 4,
+    requireConnect: ($("#sampleState").value === "nonreduced"),
+    // Multi-clip assemblies always use terminal-fragment subset (internal fragments are
+    // biologically rare in multi-chain non-reduced species and almost always fail connectivity).
+    // K=1 search still sees all clips (incl. internals) when maxCutsPerClip=2.
+    terminalOnly: true,
+    maxResults: parseInt($("#maxResults").value, 10),
+    workflow:   $("#workflow").value,
+    hcCum: buildCumMass(hc, type),
+    lcCum: buildCumMass(lc, type),
+    hcSites: findGlycoSites(hc),
+    lcSites: findGlycoSites(lc)
+  };
+  // attach cysteine cumulative arrays + auto-detect disulfide topology
+  state.hcCysCum = buildCysCum(hc);
+  state.lcCysCum = buildCysCum(lc);
+  state.topology = buildSSTopology(hc, lc);
+
+  // generateClips needs cysCum on each chain object — adapt
+  state._hcChain = { id: "HC", seq: hc, cum: state.hcCum, sites: state.hcSites, cysCum: state.hcCysCum };
+  state._lcChain = { id: "LC", seq: lc, cum: state.lcCum, sites: state.lcSites, cysCum: state.lcCysCum };
+
+  $("#searchStatus").textContent = "Generating clip catalog…";
+  setTimeout(() => {
+    const t0 = performance.now();
+    const clips = generateClipsV2(state);
+    state.maxCys = clips.reduce((m, c) => Math.max(m, c.cys), 0);
+    const sorted = buildSortedIndex(clips);
+    // Terminal-fragment subset for multi-clip combos
+    const terminalIdx = [];
+    for (let i = 0; i < clips.length; i++) {
+      const c = clips[i];
+      const chainLen = c.chain === "HC" ? state.hcLen : state.lcLen;
+      if (c.start === 1 || c.end === chainLen) terminalIdx.push(i);
+    }
+    state.terminalClips = terminalIdx.map(i => clips[i]);
+    state.terminalSorted = buildSortedIndex(state.terminalClips);
+    const t1 = performance.now();
+    $("#searchStatus").textContent = `${clips.length.toLocaleString()} clip variants (${state.terminalClips.length.toLocaleString()} terminal) generated in ${(t1-t0).toFixed(0)} ms. Searching…`;
+
+    setTimeout(() => {
+      const tS = performance.now();
+      const allResults = [];
+      for (const q of massInput) {
+        let r = searchSingleClips(q, clips, state);
+        if (state.maxClips >= 2) r = r.concat(searchPairs(q, clips, sorted, state));
+        if (state.maxClips >= 3) r = r.concat(searchTriples(q, clips, sorted, state));
+        if (state.maxClips >= 4) r = r.concat(searchQuadruples(q, clips, state));
+        // dedupe by composition signature
+        const seen = new Set();
+        const filtered = [];
+        for (const x of r) {
+          const sig = compSignature(x);
+          if (!seen.has(sig)) { seen.add(sig); filtered.push(x); }
+        }
+        // assign class + score
+        for (const x of filtered) {
+          x.klass = classifyMatch(x.parts, x.ssCount, state.hcLen, state.lcLen);
+          x.score = scoreMatch(x, state);
+        }
+        // sort by score desc, then |dDa| asc
+        filtered.sort((a, b) => (b.score - a.score) || (Math.abs(a.dDa) - Math.abs(b.dDa)));
+        allResults.push(...filtered.slice(0, state.maxResults));
+      }
+      const tE = performance.now();
+      LAST_RESULTS = allResults;
+      LAST_QUERIES = massInput.slice();
+      $("#searchStatus").textContent =
+        `Done. ${clips.length.toLocaleString()} clips, ${allResults.length} matches across ${massInput.length} quer${massInput.length===1?"y":"ies"} in ${(tE-tS).toFixed(0)} ms (gen ${(t1-t0).toFixed(0)} ms).`;
+      renderResults();
+    }, 10);
+  }, 10);
+}
+
+function compSignature(r) {
+  const parts = r.parts.map(p => `${p.chain}${p.start}-${p.end}|${p.mods.join(",")}`).sort().join("+");
+  return `${r.query}|${parts}|ss=${r.ssCount}`;
+}
+
+/* ---------- Re-implement generateClips using state._hcChain / _lcChain ---------- */
+
+function generateClipsV2(state) {
+  const clips = [];
+  const water = WATER[state.type];
+  const chains = [];
+  if (state.hc) chains.push(state._hcChain);
+  if (state.lc) chains.push(state._lcChain);
+  // Maximum number of "cuts" per clip — boundaries that aren't natural chain ends.
+  // 0 = full chain only · 1 = terminal fragment (Fab, Fc/2, etc.) · 2 = internal fragment
+  const maxCuts = (state.maxCutsPerClip != null) ? state.maxCutsPerClip : 2;
+
+  for (const ch of chains) {
+    const n = ch.seq.length;
+    const seq = ch.seq;
+    const sites = ch.sites;
+    for (let s = 1; s <= n; s++) {
+      for (let e = s + state.minLen - 1; e <= n; e++) {
+        const cuts = (s > 1 ? 1 : 0) + (e < n ? 1 : 0);
+        if (cuts > maxCuts) continue;
+        const baseMass = (ch.cum[e] - ch.cum[s - 1]) + water;
+        const cys = ch.cysCum[e] - ch.cysCum[s - 1];
+        // sites where the full N-X-S/T motif lies in [s..e]
+        let sitesInside = 0;
+        for (const p of sites) {
+          if ((p + 1) >= s && (p + 3) <= e) sitesInside++;
+        }
+        // Pyro-Glu
+        const pyroOpts = [{ name: null, delta: 0 }];
+        if (state.modPyroGlu && s === 1) {
+          if (seq[0] === "Q") pyroOpts.push({ name: "PyroGlu(Q)", delta: PYROGLU_Q[state.type] });
+          if (seq[0] === "E") pyroOpts.push({ name: "PyroGlu(E)", delta: PYROGLU_E[state.type] });
+        }
+        // C-term K loss
+        const klossOpts = [{ name: null, delta: 0 }];
+        if (state.modKloss && ch.id === "HC" && e === n && seq[n - 1] === "K") {
+          klossOpts.push({ name: "−K", delta: -((state.type === "avg") ? AA_AVG.K : AA_MONO.K) });
+        }
+        // Glycan combos
+        let glycCombos = [[]];
+        if (state.modGlyc && sitesInside > 0 && state.glycSet.length > 0) {
+          glycCombos = multisetCombos(state.glycSet, sitesInside);
+        }
+        // Free-Cys adducts: only meaningful if the clip contains ≥1 Cys.
+        // We allow 0 or 1 of each adduct independently (cap at 1 per type per clip — multiples are rare).
+        const cysOpts = (state.modCys && cys >= 1)
+          ? [{ name: null, delta: 0 }, { name: "+Cys", delta: CYS_ADDUCT[state.type] }]
+          : [{ name: null, delta: 0 }];
+        const gshOpts = (state.modGSH && cys >= 1)
+          ? [{ name: null, delta: 0 }, { name: "+GSH", delta: GSH_ADDUCT[state.type] }]
+          : [{ name: null, delta: 0 }];
+        for (const py of pyroOpts) {
+          for (const kl of klossOpts) {
+            for (const gset of glycCombos) {
+              for (const cy of cysOpts) {
+                for (const gh of gshOpts) {
+                  let mass = baseMass + py.delta + kl.delta + cy.delta + gh.delta;
+                  const glycLabels = [];
+                  let allNone = true;
+                  for (const g of gset) {
+                    mass += glycMass(GLYCAN_DEFS[g], state.type);
+                    glycLabels.push(g);
+                    if (g !== "none") allNone = false;
+                  }
+                  const modParts = [];
+                  if (py.name) modParts.push(py.name);
+                  if (kl.name) modParts.push(kl.name);
+                  if (glycLabels.length && !allNone) modParts.push("Glyc:" + glycLabels.join("+"));
+                  else if (glycLabels.length && allNone) modParts.push("Aglycosyl");
+                  if (cy.name) modParts.push(cy.name);
+                  if (gh.name) modParts.push(gh.name);
+                  clips.push({
+                    chain: ch.id,
+                    start: s,
+                    end: e,
+                    len: e - s + 1,
+                    mass: mass,
+                    cys: cys,
+                    glycCount: sitesInside,
+                    glycSet: glycLabels,
+                    mods: modParts
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return clips;
+}
+
+/* ---------- CSV export ---------- */
+
+function exportCSV() {
+  if (!LAST_RESULTS.length) { alert("Run a search first."); return; }
+  const minScoreRaw = parseInt($("#minScore").value, 10);
+  const minScore = isNaN(minScoreRaw) ? 0 : minScoreRaw;
+  // Export in the same grouped, score-filtered order as the displayed table
+  const exportRows = [];
+  for (const q of LAST_QUERIES) {
+    const items = LAST_RESULTS
+      .filter(r => r.query === q && r.score >= minScore)
+      .sort((a, b) => (b.score - a.score) || (Math.abs(a.dDa) - Math.abs(b.dDa)));
+    for (const r of items) exportRows.push(r);
+  }
+  if (!exportRows.length) { alert("No matches above the current Min score threshold."); return; }
+  const rows = [["Score","Class","Query_Da","Calc_Da","Delta_Da","Delta_ppm","Composition","Cleavage","Modifications","SS_count","Cys_total"]];
+  for (const r of exportRows) {
+    const comp = r.parts.map(p => `${p.chain}[${p.start}-${p.end}]`).join("+");
+    const mods = r.parts.flatMap(p => p.mods).join("; ") || "none";
+    const cuts = (r.cutLabels || []).join("; ") || "none";
+    rows.push([r.score, r.klass, r.query, r.calc.toFixed(4), r.dDa.toFixed(4), r.dPpm.toFixed(2), comp, cuts, mods, r.ssCount, r.totalCys]);
+  }
+  const csv = rows.map(row => row.map(v => {
+    const s = String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "lmw_fragment_matches.csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* ---------- Wire up ---------- */
+
+document.addEventListener("DOMContentLoaded", () => {
+  $("#hc").addEventListener("input", updateSeqMeta);
+  $("#lc").addEventListener("input", updateSeqMeta);
+  $("#loadExample").addEventListener("click", () => {
+    $("#hc").value = TRASTUZUMAB_HC;
+    $("#lc").value = TRASTUZUMAB_LC;
+    $("#masses").value = "23439\n26778\n47381\n50576\n74013\n96574\n148022";
+    updateSeqMeta();
+  });
+  $("#clearSeqs").addEventListener("click", () => {
+    $("#hc").value = ""; $("#lc").value = ""; $("#masses").value = "";
+    updateSeqMeta();
+    $("#searchStatus").textContent = "";
+  });
+  $("#searchBtn").addEventListener("click", runSearch);
+  $("#exportBtn").addEventListener("click", exportCSV);
+
+  // sortable headers
+  let sortKey = "score", sortDir = -1; // default: score desc
+  document.querySelectorAll("#resultsTable th").forEach(th => {
+    th.addEventListener("click", () => {
+      const k = th.dataset.sort;
+      if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = (k === "score" ? -1 : 1); }
+      LAST_RESULTS.sort((a, b) => {
+        let av, bv;
+        switch (k) {
+          case "score": return sortDir * (a.score - b.score);
+          case "klass": return sortDir * (a.klass || "").localeCompare(b.klass || "");
+          case "query": av = a.query; bv = b.query; break;
+          case "calc":  av = a.calc;  bv = b.calc;  break;
+          case "dDa":   av = a.dDa;   bv = b.dDa;   break;
+          case "dPpm":  av = a.dPpm;  bv = b.dPpm;  break;
+          case "ss":    av = a.ssCount; bv = b.ssCount; break;
+          case "cuts":
+            av = (a.cutLabels || []).join("|");
+            bv = (b.cutLabels || []).join("|");
+            return sortDir * av.localeCompare(bv);
+          case "composition":
+            av = compositionString(a.parts); bv = compositionString(b.parts);
+            return sortDir * av.localeCompare(bv);
+          case "mods":
+            av = a.parts.flatMap(p=>p.mods).join("|");
+            bv = b.parts.flatMap(p=>p.mods).join("|");
+            return sortDir * av.localeCompare(bv);
+          default: return 0;
+        }
+        return sortDir * (av - bv);
+      });
+      renderResults();
+    });
+  });
+
+  // Live re-render when min-score threshold changes (no re-search)
+  $("#minScore").addEventListener("input", () => {
+    if (LAST_QUERIES.length) renderResults();
+  });
+
+  updateSeqMeta();
+});
+</script>
+</body>
+</html>
